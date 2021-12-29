@@ -51,16 +51,22 @@ def makePng(pageNo,lines):
     ct.set_source_rgb (1.00, 1.00, 1.00)
     ct.fill()
     ct.set_source_rgb(0,0,0)
-    for i,l in enumerate(lines):
-        ct.move_to(10,26*(i+1))
-        ct.show_text(l)
+    y,dy,ddy=0,26,15 # start with 0, increment by 26 for each line and 15 between paragraphs
+    for ll in lines:
+        for l in ll:
+            y+=dy
+            ct.move_to(10,y)
+            if y>h_pic-dy: raise RuntimeError(f'page {pageNo}: text out of page vertically (y={y}, ht={h_pic})')
+            ct.show_text(l)
+        y+=ddy
     surface.write_to_png(png)
     return png
 
 pdf = FPDF('P', 'mm', 'A5')
 
 currPage=0 # current page
-currIaLines=[] # lines on this page
+currWrapped=0 # wrapped lines on this page so far
+currIaLines=[] # lines grouped by corpus lines
 currEnLines=[]
 line=0 # current corpus line to be printed
 while True:
@@ -68,23 +74,24 @@ while True:
     while True:
         if line>=len(ll_IA_wrap): break
         ia=ll_IA_wrap[line] # IA corpus line wrapped to PDF lines
-        if len(currIaLines)+len(ia)>linesPerPage:
+        if currWrapped+len(ia)>linesPerPage:
             # next corpus line would not fit, page is done
-            if len(currIaLines)==0: raise RuntimeError(f'corpus line {line}: wraps to {len(ia)} page lines (maximum is {linesPerPage})')
+            if currWrapped==0: raise RuntimeError(f'corpus line {line}: wraps to {len(ia)} page lines (maximum is {linesPerPage})')
             break
         else:
             # add corpus line and continue
-            currIaLines+=ia
+            currIaLines+=[ia]
             currEnLines+=[ll_EN[line]]
+            currWrapped+=len(ia)+.5 # add extra line for inter-paragraph skip
             line+=1
-    if len(currIaLines)==0: break # no lines, finishing
+    if currWrapped==0: break # no lines, finishing
     log.info(f'page {currPage}: {len(currIaLines)} IA lines, {len(currEnLines)} corpus lines ({line-len(currEnLines)}..{line-1})')
     pdf.add_page()
     # create PNG with IA lines printed, insert it into the PDF
     png=makePng(currPage,currIaLines)
     pdf.image(png,x=0,y=0,w=148,h=210)
     # add EN text as text
-    pdf.set_font('Arial','',1)
+    pdf.set_font('Arial','',.01)
     pdf.set_text_color(210,210,210)
     for i,en in enumerate(currEnLines):
         pdf.set_xy(10,10*i)
@@ -92,6 +99,7 @@ while True:
     # move to the next page
     currPage+=1
     currIaLines,currEnLines=[],[]
+    currWrapped=0
 log.info(f'Finished, writing {pdfOut}')
 pdf.output(pdfOut)
 
