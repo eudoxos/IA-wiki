@@ -31,6 +31,8 @@ log.info(f'IA, EN: {len(ll_IA)}, {len(ll_EN)} lines')
 # output variables
 linesPerPage=30
 charsPerLine=65
+# relative extra vertical space between apragraphs (1.0 is normal text line distance)
+interPar=.8
 
 # wrap IA lines to charsPerLine
 ll_IA_wrap=[textwrap.wrap(l,charsPerLine) for l in ll_IA]
@@ -51,14 +53,14 @@ def makePng(pageNo,lines):
     ct.set_source_rgb (1.00, 1.00, 1.00)
     ct.fill()
     ct.set_source_rgb(0,0,0)
-    y,dy,ddy=0,26,15 # start with 0, increment by 26 for each line and 15 between paragraphs
+    y,dy=0,26 # start at 0, increment by 26 for each line
     for ll in lines:
         for l in ll:
             y+=dy
             ct.move_to(10,y)
             if y>h_pic-dy: raise RuntimeError(f'page {pageNo}: text out of page vertically (y={y}, ht={h_pic})')
             ct.show_text(l)
-        y+=ddy
+        y+=int(round((dy*interPar)))
     surface.write_to_png(png)
     return png
 
@@ -82,7 +84,7 @@ while True:
             # add corpus line and continue
             currIaLines+=[ia]
             currEnLines+=[ll_EN[line]]
-            currWrapped+=len(ia)+.5 # add extra line for inter-paragraph skip
+            currWrapped+=len(ia)+float(interPar) # add extra line for inter-paragraph skip
             line+=1
     if currWrapped==0: break # no lines, finishing
     log.info(f'page {currPage}: {len(currIaLines)} IA lines, {len(currEnLines)} corpus lines ({line-len(currEnLines)}..{line-1})')
